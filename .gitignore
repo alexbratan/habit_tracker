@@ -205,3 +205,58 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Frontend (Node.js/Vite/Tailwind)
+# Dependencies
+frontend/**/node_modules/
+frontend/**/npm-debug.log*
+frontend/**/yarn-debug.log*
+frontend/**/yarn-error.log*
+frontend/**/pnpm-debug.log*
+frontend/**/lerna-debug.log*
+
+# Build outputs
+frontend/**/dist/
+frontend/**/build/
+frontend/**/.vite/
+
+# Environment files
+frontend/**/.env.local
+frontend/**/.env.development.local
+frontend/**/.env.test.local
+frontend/**/.env.production.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backend specific
+.env
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/app/__pycache__/
+backend/app/core/__pycache__/
+backend/app/routes/__pycache__/
+backend/app/models/__pycache__/
