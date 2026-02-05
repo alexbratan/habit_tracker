@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from app.database import get_db
 from app.models.user import UserCreate, UserResponse, UserUpdate, UserInDB, UserLogin, Token
 from app.core.jwt import create_access_token
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_password
 from bson import ObjectId
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -47,6 +48,15 @@ async def get_all_users():
             created_at=user.get("created_at", user.get("_id").generation_time)
         ))
     return users
+
+
+@router.get("/me")
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return {
+        "id": str(current_user["_id"]),
+        "email": current_user["email"],
+        "username": current_user.get("username")
+    }
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -128,42 +138,20 @@ async def delete_user(user_id: str):
     return {"message": "User deleted successfully"}
 
 
-@router.post("/login", response_model=Token)
-async def login(user_login: UserLogin):
+@router.post("/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     db = get_db()
-    
-    # Find user by email
-    user_doc = await db.users.find_one({"email": user_login.email})
-    if not user_doc:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    
-    # Create UserInDB instance to verify password
-    user_in_db = UserInDB(
-        email=user_doc["email"],
-        username=user_doc.get("username"),
-        password_hash=user_doc["password_hash"],
-        created_at=user_doc.get("created_at", user_doc["_id"].generation_time)
-    )
-    
-    # Verify password
-    if not user_in_db.verify_password_method(user_login.password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    
-    return {
-        "access_token": create_access_token({"sub": user_doc["email"], "user_id": str(user_doc["_id"])}),
-        "token_type": "bearer",
-        "user": {
-            "id": str(user_doc["_id"]),
-            "email": user_doc["email"],
-            "username": user_doc.get("username")
-        }
-    }
 
+    # form_data.username = ce scrii în Swagger la "username" 
+    email = form_data.username
+    password = form_data.password
 
-@router.get("/me")
-async def read_users_me(current_user: dict = Depends(get_current_user)):
-    return {
-        "id": str(current_user["_id"]),
-        "email": current_user["email"],
-        "username": current_user.get("username")
-    }
+    user = await db.users.find_one({"email": email})
+    if not user or not verify_password(password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+
+    access_token = create_access_token({
+        "sub": user["email"],  # Standard JWT subject claim (email)
+        "user_id": str(user["_id"])  # User ID for database lookup
+    })
+    return {"access_token": access_token, "token_type": "bearer"}
