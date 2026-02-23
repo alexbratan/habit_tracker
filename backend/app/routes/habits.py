@@ -157,11 +157,38 @@ async def delete_habit(
     except:
         raise HTTPException(status_code=400, detail="Invalid habit ID")
 
-    # First, delete all weekly plans for this habit (complete removal)
-    weekly_plans_result = await db.weekly_plans.delete_many({
+    # Get all weekly plans for this habit
+    weekly_plans_cursor = db.weekly_plans.find({
         "user_id": current_user["_id"],
         "habitId": object_id
     })
+    
+    # Get all overrides for these weekly plans
+    weekly_plan_ids = []
+    async for wp in weekly_plans_cursor:
+        weekly_plan_ids.append(wp["_id"])
+    
+    overrides_for_habit = []
+    if weekly_plan_ids:
+        async for ov in db.plan_overrides.find({
+            "user_id": current_user["_id"],
+            "weeklyPlanId": {"$in": weekly_plan_ids}
+        }):
+            overrides_for_habit.append(ov["weeklyPlanId"])
+    
+    # Delete only weekly plans that DON'T have overrides (planned instances only)
+    weekly_plan_ids_with_overrides = set(overrides_for_habit)
+    weekly_plans_to_delete = []
+    for wp_id in weekly_plan_ids:
+        if wp_id not in weekly_plan_ids_with_overrides:
+            weekly_plans_to_delete.append(wp_id)
+    
+    deleted_plans_count = 0
+    if weekly_plans_to_delete:
+        result = await db.weekly_plans.delete_many({
+            "_id": {"$in": weekly_plans_to_delete}
+        })
+        deleted_plans_count = result.deleted_count
 
     # Then, soft-delete the habit itself
     result = await db.habits.update_one(
@@ -177,5 +204,6 @@ async def delete_habit(
 
     return {
         "message": "Habit removed",
-        "deleted_weekly_plans": weekly_plans_result.deleted_count
+        "deleted_weekly_plans": deleted_plans_count,
+        "preserved_overrides": len(overrides_for_habit)
     }

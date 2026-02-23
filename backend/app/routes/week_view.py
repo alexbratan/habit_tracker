@@ -33,9 +33,8 @@ async def week_view(start: Optional[str] = None, current_user: dict = Depends(ge
             start_dt = parse_date(start).date()
         except:
             raise HTTPException(status_code=400, detail="Invalid start date format. Use YYYY-MM-DD")
-        if start_dt.weekday() != 0:
-            raise HTTPException(status_code=400, detail="start must be a Monday (YYYY-MM-DD)")
-        start_date = start_dt
+        # Calculate the Monday of the week containing the provided date
+        start_date = monday_of_week(start_dt)
 
     # Build date strings for Mon..Sun
     dates = [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
