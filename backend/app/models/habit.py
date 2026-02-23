@@ -6,7 +6,7 @@ from bson import ObjectId
 
 class HabitCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    default_duration: Optional[int] = Field(None, ge=1, description="Default duration in minutes")
+    default_duration: int = Field(..., ge=1, description="Default duration in minutes")
 
 
 class HabitUpdate(BaseModel):

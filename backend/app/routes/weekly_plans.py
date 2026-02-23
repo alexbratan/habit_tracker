@@ -27,25 +27,35 @@ async def create_weekly_plan(
     current_user: dict = Depends(get_current_user),
 ):
     db = get_db()
+    
+    # Debug logging
+    print(f"DEBUG: Received payload: {payload}")
+    print(f"DEBUG: User ID: {current_user['_id']}")
 
     # validate weekday
     if payload.weekday < 0 or payload.weekday > 6:
+        print(f"DEBUG: Invalid weekday: {payload.weekday}")
         raise HTTPException(status_code=400, detail="weekday must be in [0..6] (Mon=0..Sun=6)")
 
     # validate duration
     if payload.plannedDuration <= 0:
+        print(f"DEBUG: Invalid duration (<=0): {payload.plannedDuration}")
         raise HTTPException(status_code=400, detail="plannedDuration must be > 0")
     if payload.plannedDuration > DAY_LIMIT_MINUTES:
+        print(f"DEBUG: Invalid duration (>1440): {payload.plannedDuration}")
         raise HTTPException(status_code=400, detail="plannedDuration cannot exceed 1440 minutes")
 
     # parse habitId
     try:
         habit_oid = ObjectId(payload.habitId)
-    except:
+        print(f"DEBUG: Parsed habit ObjectId: {habit_oid}")
+    except Exception as e:
+        print(f"DEBUG: Invalid habitId format: {payload.habitId}, error: {e}")
         raise HTTPException(status_code=400, detail="Invalid habitId")
 
     # habit must exist and belong to user
     habit = await db.habits.find_one({"_id": habit_oid, "user_id": current_user["_id"], "is_active": True})
+    print(f"DEBUG: Found habit: {habit}")
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
 
@@ -86,7 +96,7 @@ async def create_weekly_plan(
     )
 
 
-@router.get("", response_model=list[WeeklyPlanResponse])
+@router.get("")
 async def list_weekly_plans(
     weekday: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
@@ -94,22 +104,45 @@ async def list_weekly_plans(
     db = get_db()
 
     query = {"user_id": current_user["_id"], "is_active": True}
+    
+    # Also include inactive habits to preserve historical data
+    # This allows frontend to see all weekly plans including those for deleted habits
+    if weekday is None:
+        # Only for the main list - include both active and inactive
+        query = {"user_id": current_user["_id"]}
 
     if weekday is not None:
         if weekday < 0 or weekday > 6:
             raise HTTPException(status_code=400, detail="weekday must be in [0..6] (Mon=0..Sun=6)")
         query["weekday"] = weekday
 
-    out: list[WeeklyPlanResponse] = []
+    # Get all weekly plans
+    weekly_plans_list = []
     cursor = db.weekly_plans.find(query).sort("createdAt", 1)
 
     async for wp in cursor:
-        out.append(WeeklyPlanResponse(
-            id=str(wp["_id"]),
-            weekday=wp["weekday"],
-            habitId=str(wp["habitId"]),
-            plannedDuration=wp["plannedDuration"],
-        ))
+        weekly_plans_list.append(wp)
+
+    # Get all habit IDs and fetch habits in batch
+    habit_ids = [wp["habitId"] for wp in weekly_plans_list]
+    habits = {}
+    if habit_ids:
+        async for habit in db.habits.find({"_id": {"$in": habit_ids}}):
+            habits[str(habit["_id"])] = habit
+
+    # Build response with habit names
+    out = []
+    for wp in weekly_plans_list:
+        habit = habits.get(str(wp["habitId"]))
+        habit_name = habit["name"] if habit else "Unknown Habit"
+        
+        out.append({
+            "id": str(wp["_id"]),
+            "weekday": wp["weekday"],
+            "habitId": str(wp["habitId"]),
+            "habitName": habit_name,
+            "plannedDuration": wp["plannedDuration"],
+        })
 
     return out
 
@@ -200,7 +233,7 @@ async def resolved_day(date: str, current_user: dict = Depends(get_current_user)
     except:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    # 1) Load weekly template items for that weekday
+    # 1) Load weekly template items for that weekday (only active ones)
     templates = []
     async for wp in db.weekly_plans.find({
         "user_id": current_user["_id"],
@@ -217,11 +250,43 @@ async def resolved_day(date: str, current_user: dict = Depends(get_current_user)
     }):
         overrides_by_weekly_plan_id[str(ov["weeklyPlanId"])] = ov
 
-    # 3) Build resolved list (override wins)
+    # 2.5) Also load inactive weekly plans that have overrides for this date
+    # This ensures done/skipped instances of deleted habits still show up
+    weekly_plan_ids_with_overrides = list(overrides_by_weekly_plan_id.keys())
+    if weekly_plan_ids_with_overrides:
+        async for wp in db.weekly_plans.find({
+            "_id": {"$in": [ObjectId(wp_id) for wp_id in weekly_plan_ids_with_overrides]},
+            "user_id": current_user["_id"],
+            "weekday": weekday,
+            "is_active": False  # Only inactive ones that weren't included above
+        }):
+            templates.append(wp)
+
+    # 3) Get habit names for all habits in templates (including inactive ones for historical data)
+    habit_ids = [wp["habitId"] for wp in templates]
+    habits = {}
+    if habit_ids:
+        # Convert ObjectId habitIds to strings for lookup
+        habit_ids_str = [str(hid) if isinstance(hid, ObjectId) else hid for hid in habit_ids]
+        print(f"DEBUG: Looking for habit IDs: {habit_ids_str}")
+        
+        # Include both active and inactive habits to preserve historical data
+        async for habit in db.habits.find({"_id": {"$in": habit_ids}}):
+            habits[str(habit["_id"])] = habit
+            print(f"DEBUG: Found habit: {habit['_id']} -> {habit['name']}")
+        
+        print(f"DEBUG: Total habits found: {len(habits)}")
+
+    # 4) Build resolved list (override wins)
     items = []
     for wp in templates:
         wp_id_str = str(wp["_id"])
         ov = overrides_by_weekly_plan_id.get(wp_id_str)
+        habit_id_str = str(wp["habitId"])
+        habit = habits.get(habit_id_str)
+        habit_name = habit["name"] if habit else "Unknown Habit"
+        
+        print(f"DEBUG: WeeklyPlan {wp_id_str} -> HabitID {habit_id_str} -> Found: {habit is not None} -> Name: {habit_name}")
 
         # base from template
         planned_duration = int(wp["plannedDuration"])
@@ -247,6 +312,7 @@ async def resolved_day(date: str, current_user: dict = Depends(get_current_user)
             "date": date,
             "weekday": weekday,
             "habitId": str(wp["habitId"]),
+            "habitName": habit_name,
             "plannedDuration": planned_duration,
             "status": status,
             "actualDuration": actual_duration,

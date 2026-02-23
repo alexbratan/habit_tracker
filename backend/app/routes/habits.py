@@ -14,10 +14,11 @@ async def create_habit(
 ):
     db = get_db()
 
-    # opțional: nu permite duplicate la nume per user
+    # opțional: nu permite duplicate la nume per user, dar doar pentru active habits
     existing = await db.habits.find_one({
         "user_id": current_user["_id"],
-        "name": habit.name
+        "name": habit.name,
+        "is_active": True
     })
     if existing:
         raise HTTPException(status_code=400, detail="Habit already exists")
@@ -156,6 +157,13 @@ async def delete_habit(
     except:
         raise HTTPException(status_code=400, detail="Invalid habit ID")
 
+    # First, delete all weekly plans for this habit (complete removal)
+    weekly_plans_result = await db.weekly_plans.delete_many({
+        "user_id": current_user["_id"],
+        "habitId": object_id
+    })
+
+    # Then, soft-delete the habit itself
     result = await db.habits.update_one(
         {
             "_id": object_id,
@@ -167,4 +175,7 @@ async def delete_habit(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Habit not found")
 
-    return {"message": "Habit removed"}
+    return {
+        "message": "Habit removed",
+        "deleted_weekly_plans": weekly_plans_result.deleted_count
+    }
