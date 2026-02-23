@@ -120,7 +120,7 @@ export const CompactDashboard: React.FC = () => {
     <>
       <div className="max-w-4xl mx-auto p-6">
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Today's Overview</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">Today's Overview</h1>
           
           {/* Streak Section */}
           <div className="mb-8">
@@ -130,7 +130,7 @@ export const CompactDashboard: React.FC = () => {
           {/* Progress Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-gray-700">Today's Progress</h2>
+              <h2 className="text-xl font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Today's Progress</h2>
               <span className={`text-2xl font-bold transition-all duration-500 ease-out ${getProgressColor(animatedProgress)}`}>
                 {animatedProgress}%
               </span>
@@ -148,7 +148,7 @@ export const CompactDashboard: React.FC = () => {
 
           {/* Next Habit Section */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Next Habit to Complete</h2>
+            <h2 className="text-xl font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">Next Habit to Complete</h2>
             {nextHabit ? (
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
