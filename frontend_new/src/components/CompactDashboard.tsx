@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { weekViewAPI, WeekViewResponse, DayData, WeekViewItem } from '../api/weekView';
 import { overridesAPI, OverrideUpsert } from '../api';
@@ -12,6 +12,9 @@ export const CompactDashboard: React.FC = () => {
   const [nextHabit, setNextHabit] = useState<WeekViewItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHabitModalOpen, setIsHabitModalOpen] = useState(false);
+  const [streakRefreshTrigger, setStreakRefreshTrigger] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const lastRefreshTime = useRef<number>(0);
 
   // Animate progress when it changes
   useEffect(() => {
@@ -78,6 +81,8 @@ export const CompactDashboard: React.FC = () => {
 
   const handleStatusChange = async (item: WeekViewItem, newStatus: 'planned' | 'done' | 'skipped') => {
     try {
+      const now = Date.now();
+      
       // Use overrides API to change individual habit status
       const overrideData: OverrideUpsert = {
         weeklyPlanId: item.weeklyPlanId,
@@ -91,6 +96,12 @@ export const CompactDashboard: React.FC = () => {
       
       // Refresh the dashboard data to show updated status
       await loadTodayData();
+      
+      // Trigger streak refresh if habit was marked as done (with time-based deduplication)
+      if (newStatus === 'done' && now - lastRefreshTime.current > 1000) {
+        lastRefreshTime.current = now;
+        setStreakRefreshTrigger(prev => prev + 1);
+      }
     } catch (error) {
       console.error('Error changing habit status:', error);
     }
@@ -124,7 +135,7 @@ export const CompactDashboard: React.FC = () => {
           
           {/* Streak Section */}
           <div className="mb-8">
-            <Streak />
+            <Streak refreshTrigger={streakRefreshTrigger} />
           </div>
           
           {/* Progress Section */}

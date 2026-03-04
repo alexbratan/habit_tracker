@@ -150,6 +150,21 @@ async def upsert_override(payload: OverrideUpsert, current_user: dict = Depends(
 
     # persist
     if existing:
+        # If status is being set to "planned", delete the override to revert to template
+        if proposed["status"] == "planned":
+            await db.plan_overrides.delete_one({"_id": existing["_id"]})
+            return OverrideResponse(
+                id=str(existing["_id"]),
+                weeklyPlanId=str(existing["weeklyPlanId"]),
+                date=existing["date"],
+                status="planned",
+                plannedDuration=existing.get("plannedDuration"),
+                actualDuration=None,
+                note=None,
+                createdAt=existing.get("createdAt"),
+                completedAt=None
+            )
+        
         update_doc = {
             "status": proposed["status"],
             "plannedDuration": proposed.get("plannedDuration"),

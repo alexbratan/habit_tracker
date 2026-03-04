@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional
@@ -151,6 +151,7 @@ async def list_weekly_plans(
 async def delete_weekly_plan(
     weekly_plan_id: str,
     current_user: dict = Depends(get_current_user),
+    date: Optional[str] = Query(None, description="Specific date to remove instance from"),  # Optional date parameter for specific instance deletion
 ):
     db = get_db()
 
@@ -159,15 +160,61 @@ async def delete_weekly_plan(
     except:
         raise HTTPException(status_code=400, detail="Invalid weekly plan id")
 
-    result = await db.weekly_plans.update_one(
-        {"_id": wp_oid, "user_id": current_user["_id"], "is_active": True},
-        {"$set": {"is_active": False}}
-    )
-
-    if result.matched_count == 0:
+    # Get the weekly plan to check for past overrides
+    weekly_plan = await db.weekly_plans.find_one({"_id": wp_oid, "user_id": current_user["_id"]})
+    if not weekly_plan:
         raise HTTPException(status_code=404, detail="Weekly plan not found")
 
-    return {"message": "Removed from weekly template"}
+    # Check if there are any past overrides (done/skipped instances)
+    past_overrides_exist = await db.plan_overrides.find_one({
+        "weeklyPlanId": weekly_plan_id,
+        "user_id": current_user["_id"],
+        "status": {"$in": ["done", "skipped"]}
+    })
+
+    if past_overrides_exist and date:
+        # If there are past instances and this is a specific date deletion,
+        # create an override to remove this specific instance only
+        override_doc = {
+            "user_id": current_user["_id"],
+            "weeklyPlanId": weekly_plan_id,
+            "date": date,
+            "status": "removed",  # New status to indicate removed instance
+            "created_at": datetime.utcnow()
+        }
+        
+        # Upsert the override (create or update)
+        await db.plan_overrides.update_one(
+            {"weeklyPlanId": weekly_plan_id, "date": date, "user_id": current_user["_id"]},
+            {"$set": override_doc},
+            upsert=True
+        )
+        
+        return {"message": "Instance removed from specific date"}
+    
+    elif past_overrides_exist:
+        # If there are past instances but no specific date, deactivate the template
+        # but keep it for historical data
+        result = await db.weekly_plans.update_one(
+            {"_id": wp_oid, "user_id": current_user["_id"]},
+            {"$set": {"is_active": False}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Weekly plan not found")
+            
+        return {"message": "Template deactivated (past instances preserved)"}
+    
+    else:
+        # No past instances, safe to delete the entire template
+        result = await db.weekly_plans.delete_one(
+            {"_id": wp_oid, "user_id": current_user["_id"]}
+        )
+
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Weekly plan not found")
+
+        return {"message": "Removed from weekly template"}
 
 
 @router.patch("/{weekly_plan_id}", response_model=WeeklyPlanResponse)

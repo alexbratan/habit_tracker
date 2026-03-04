@@ -5,6 +5,7 @@ export { overridesAPI } from './overrides';
 export { dayActionsAPI } from './dayActions';
 export { weekViewAPI } from './weekView';
 export { dailyProgressAPI } from './dailyProgress';
+export { weeklyReportAPI } from './weeklyReport';
 
 export type {
   LoginRequest,
@@ -42,3 +43,8 @@ export type {
   DailyProgress,
   StreakResponse,
 } from './dailyProgress';
+
+export type {
+  DailyStats,
+  WeeklyReport,
+} from './weeklyReport';

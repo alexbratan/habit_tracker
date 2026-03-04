@@ -5,20 +5,40 @@ import { motion } from 'framer-motion';
 
 interface StreakProps {
   className?: string;
+  refreshTrigger?: number; // Add refresh trigger
 }
 
-export const Streak: React.FC<StreakProps> = ({ className = '' }) => {
+export const Streak: React.FC<StreakProps> = ({ className = '', refreshTrigger }) => {
   const [currentStreak, setCurrentStreak] = useState<number>(0);
   const [bestStreak, setBestStreak] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [previousStreak, setPreviousStreak] = useState<number>(0);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [lastKnownStreak, setLastKnownStreak] = useState<number>(0);
 
   useEffect(() => {
     loadStreak();
-  }, []);
+  }, [refreshTrigger]); // Add refreshTrigger dependency
 
   const loadStreak = async () => {
     try {
       const data: StreakResponse = await dailyProgressAPI.getStreak();
+      
+      // Check if streak increased (for celebration)
+      if (data.current_streak > lastKnownStreak && lastKnownStreak > 0) {
+        setPreviousStreak(lastKnownStreak);
+        setShowCelebration(true);
+        setIsAnimating(true);
+        
+        // Hide celebration after animation
+        setTimeout(() => {
+          setShowCelebration(false);
+        }, 2000);
+      }
+      
+      // Update both current and last known streak
+      setLastKnownStreak(data.current_streak);
       setCurrentStreak(data.current_streak);
       setBestStreak(data.best_streak);
     } catch (error) {
@@ -129,14 +149,68 @@ export const Streak: React.FC<StreakProps> = ({ className = '' }) => {
               </motion.div>
               
               <div>
-                <motion.div
-                  key={currentStreak}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className={`text-4xl font-bold ${getCurrentStreakColor(currentStreak)} mb-1`}
-                >
-                  {currentStreak}
-                </motion.div>
+                <div className="relative">
+                  {/* Celebration Animation */}
+                  {showCelebration && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0] }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    >
+                      {/* Star burst effect */}
+                      {[...Array(8)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ 
+                            scale: [0, 1, 0], 
+                            opacity: [0, 1, 0],
+                            rotate: [0, 360]
+                          }}
+                          transition={{ 
+                            duration: 1.2, 
+                            delay: i * 0.1,
+                            ease: "easeOut"
+                          }}
+                          className="absolute"
+                          style={{
+                            transform: `rotate(${i * 45}deg) translateY(-30px)`
+                          }}
+                        >
+                          <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        </motion.div>
+                      ))}
+                      
+                      {/* Central star */}
+                      <motion.div
+                        initial={{ scale: 0, rotate: 0 }}
+                        animate={{ scale: [0, 1.2, 1], rotate: [0, 360] }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="relative z-10"
+                      >
+                        <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
+                          <Star className="w-6 h-6 text-white fill-white" />
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                  
+                  <motion.div
+                    key={currentStreak}
+                    initial={{ scale: isAnimating ? 0.8 : 1, opacity: isAnimating ? 0 : 1 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ 
+                      duration: 0.5, 
+                      delay: isAnimating ? 0.3 : 0,
+                      ease: "easeOut"
+                    }}
+                    onAnimationComplete={() => setIsAnimating(false)}
+                    className={`text-4xl font-bold ${getCurrentStreakColor(currentStreak)} mb-1`}
+                  >
+                    {currentStreak}
+                  </motion.div>
+                </div>
                 <div className={`text-sm font-medium ${getCurrentStreakColor(currentStreak)}`}>
                   {getCurrentStreakMessage(currentStreak)}
                 </div>

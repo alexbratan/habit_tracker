@@ -4,8 +4,9 @@ import { weekViewAPI, weeklyPlansAPI, WeekViewResponse, WeekViewItem, CreateWeek
 import { habitsAPI, Habit } from '../api';
 import { dayActionsAPI, DayActionRequest } from '../api';
 import { overridesAPI, OverrideUpsert } from '../api';
-import { ChevronLeft, Check, X, RotateCcw, Plus, Trash2, Calendar, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, RotateCcw, Plus, Trash2, Calendar, RefreshCw, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WeeklyReportModal } from './WeeklyReportModal';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -17,6 +18,7 @@ export const WeekView: React.FC = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [weeklyPlans, setWeeklyPlans] = useState<any[]>([]);
   const [addingHabit, setAddingHabit] = useState<number | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [newHabitForm, setNewHabitForm] = useState<{
     habitId: string;
     plannedDuration: number;
@@ -92,6 +94,22 @@ export const WeekView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const goToPreviousWeek = () => {
+    const currentWeek = selectedWeek || new Date().toISOString().split('T')[0];
+    const currentDate = new Date(currentWeek);
+    const previousWeek = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const previousWeekString = previousWeek.toISOString().split('T')[0];
+    setSelectedWeek(previousWeekString);
+  };
+
+  const goToNextWeek = () => {
+    const currentWeek = selectedWeek || new Date().toISOString().split('T')[0];
+    const currentDate = new Date(currentWeek);
+    const nextWeek = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextWeekString = nextWeek.toISOString().split('T')[0];
+    setSelectedWeek(nextWeekString);
   };
 
   const handleAddHabit = (weekday: number) => {
@@ -183,12 +201,17 @@ export const WeekView: React.FC = () => {
     }
   };
 
-  const handleDeleteWeeklyPlan = async (weeklyPlanId: string) => {
+  const handleDeleteWeeklyPlan = async (weeklyPlanId: string, date: string) => {
     try {
-      await weeklyPlansAPI.deleteWeeklyPlan(weeklyPlanId);
+      // Delete the specific instance with date to preserve past instances
+      await weeklyPlansAPI.deleteWeeklyPlan(weeklyPlanId, date);
       
-      // Refresh the week view to show updated habits
+      // Force a complete refresh by clearing state first
+      setWeekData(null);
+      
+      // Refresh all data to ensure clean state
       await loadWeekView();
+      await loadWeeklyPlans();
     } catch (error) {
       console.error('Error deleting weekly plan:', error);
     }
@@ -327,20 +350,112 @@ export const WeekView: React.FC = () => {
                 placeholder="Week start (Monday)"
               />
             </div>
-            <div className="flex space-x-2">
-              <button
+            <div className="flex flex-wrap gap-2">
+              <motion.button
+                onClick={goToPreviousWeek}
+                className="group relative px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-200 hover:from-slate-200 hover:to-slate-300 dark:from-slate-700 dark:to-slate-600 dark:hover:from-slate-600 dark:hover:to-slate-500 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm shadow-sm hover:shadow-md transition-all duration-300 flex items-center space-x-2 border border-slate-200/50 dark:border-slate-600/50"
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95, y: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <motion.div
+                  className="w-4 h-4 flex items-center justify-center"
+                  whileHover={{ x: -2 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </motion.div>
+                <span>Previous</span>
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  initial={false}
+                  animate={{ opacity: [0, 0.5, 0] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                />
+              </motion.button>
+
+              <motion.button
+                onClick={goToNextWeek}
+                className="group relative px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-200 hover:from-slate-200 hover:to-slate-300 dark:from-slate-700 dark:to-slate-600 dark:hover:from-slate-600 dark:hover:to-slate-500 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm shadow-sm hover:shadow-md transition-all duration-300 flex items-center space-x-2 border border-slate-200/50 dark:border-slate-600/50"
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95, y: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <span>Next</span>
+                <motion.div
+                  className="w-4 h-4 flex items-center justify-center"
+                  whileHover={{ x: 2 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </motion.div>
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  initial={false}
+                  animate={{ opacity: [0, 0.5, 0] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: 0.5 }}
+                />
+              </motion.button>
+
+              <motion.button
                 onClick={() => setSelectedWeek('')}
-                className="btn-secondary text-sm"
+                className="group relative px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center space-x-2"
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95, y: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
               >
-                Current Week
-              </button>
-              <button
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 flex items-center justify-center"
+                >
+                  <Calendar className="w-4 h-4" />
+                </motion.div>
+                <span>Today</span>
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                />
+              </motion.button>
+
+              <motion.button
                 onClick={loadWeekView}
-                className="btn-primary text-sm flex items-center space-x-1"
+                className="group relative px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center space-x-2"
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95, y: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
               >
-                <RefreshCw className="w-3 h-3" />
-                <span>Refresh</span>
-              </button>
+                <motion.div
+                  animate={{ rotate: isLoading ? 360 : 0 }}
+                  transition={{ duration: 1, repeat: isLoading ? Infinity : 0, ease: "linear" }}
+                  className="w-4 h-4 flex items-center justify-center"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </motion.div>
+                <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                />
+              </motion.button>
+
+              <motion.button
+                onClick={() => setIsReportModalOpen(true)}
+                className="group relative px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center space-x-2"
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95, y: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <motion.div
+                  className="w-4 h-4 flex items-center justify-center"
+                  whileHover={{ scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                </motion.div>
+                <span>Weekly Report</span>
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                />
+              </motion.button>
             </div>
           </div>
         </div>
@@ -533,7 +648,7 @@ export const WeekView: React.FC = () => {
                                     </div>
                                   </div>
                                   <button
-                                    onClick={() => handleDeleteWeeklyPlan(item.weeklyPlanId)}
+                                    onClick={() => handleDeleteWeeklyPlan(item.weeklyPlanId, dateForDay)}
                                     className="p-1 hover:bg-white/50 rounded-md transition-colors flex-shrink-0"
                                     title="Remove from weekly plan"
                                   >
@@ -643,6 +758,13 @@ export const WeekView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Weekly Report Modal */}
+      <WeeklyReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        selectedWeek={selectedWeek || undefined}
+      />
     </motion.div>
   );
 };

@@ -7,6 +7,7 @@ from app.routes.overrides import router as overrides_router
 from app.routes.day_actions import router as day_actions_router
 from app.routes.week_view import router as week_view_router
 from app.routes.daily_progress import router as daily_progress_router
+from app.routes.weekly_report import router as weekly_report_router
 
 app = FastAPI(title="Habit Tracker API")
 
@@ -26,3 +27,4 @@ app.include_router(overrides_router)
 app.include_router(day_actions_router)
 app.include_router(week_view_router)
 app.include_router(daily_progress_router)
+app.include_router(weekly_report_router)

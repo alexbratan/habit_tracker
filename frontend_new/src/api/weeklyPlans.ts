@@ -35,7 +35,8 @@ export const weeklyPlansAPI = {
     return response.data;
   },
 
-  deleteWeeklyPlan: async (id: string): Promise<void> => {
-    await apiClient.delete(`/weekly-plans/${id}`);
+  deleteWeeklyPlan: async (id: string, date?: string): Promise<void> => {
+    const url = date ? `/weekly-plans/${id}?date=${date}` : `/weekly-plans/${id}`;
+    await apiClient.delete(url);
   },
 };

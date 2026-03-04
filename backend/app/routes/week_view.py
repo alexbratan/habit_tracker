@@ -89,6 +89,11 @@ async def week_view(start: Optional[str] = None, current_user: dict = Depends(ge
                 source = "override"
                 override_id = str(ov["_id"])
                 status = ov.get("status", status)
+                
+                # Skip removed instances
+                if status == "removed":
+                    continue
+                    
                 if ov.get("plannedDuration") is not None:
                     planned_duration = int(ov["plannedDuration"])
                 actual_duration = ov.get("actualDuration")

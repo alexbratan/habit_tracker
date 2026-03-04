@@ -94,8 +94,9 @@ async def get_current_streak(current_user: dict = Depends(get_current_user)):
     best_streak = 0
     temp_streak = 0
     
-    # Check all days in the past to find the longest streak
-    for i in range(0, 365):  # Check up to a year back
+    # Check all days in chronological order to find the longest streak
+    # Start from oldest day and go forward
+    for i in range(364, -1, -1):  # Check from 364 days ago to today
         check_date = today - timedelta(days=i)
         date_str = check_date.isoformat()
         
