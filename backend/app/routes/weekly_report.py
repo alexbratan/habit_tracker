@@ -103,9 +103,9 @@ async def get_day_completion_data(db, user_id: ObjectId, date: str) -> DailyStat
     if total_planned > 0:
         completion_percentage = (total_actual / total_planned) * 100
     elif total_planned == 0:
-        completion_percentage = 100.0  # No tasks planned = 100% complete
+        completion_percentage = 0.0  # No tasks planned = 0% complete, not 100%
 
-    is_100_percent = completion_percentage >= 100.0
+    is_100_percent = total_planned > 0 and completion_percentage >= 100.0
 
     return DailyStats(
         date=date,
