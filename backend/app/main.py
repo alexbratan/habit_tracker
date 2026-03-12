@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
 from app.routes.users import router as users_router
 from app.routes.habits import router as habits_router
 from app.routes.weekly_plans import router as weekly_plans_router
@@ -8,6 +10,10 @@ from app.routes.day_actions import router as day_actions_router
 from app.routes.week_view import router as week_view_router
 from app.routes.daily_progress import router as daily_progress_router
 from app.routes.weekly_report import router as weekly_report_router
+from app.routes.chatbot import router as chatbot_router
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Habit Tracker API")
 
@@ -28,3 +34,4 @@ app.include_router(day_actions_router)
 app.include_router(week_view_router)
 app.include_router(daily_progress_router)
 app.include_router(weekly_report_router)
+app.include_router(chatbot_router, prefix="/api/chatbot", tags=["chatbot"])
