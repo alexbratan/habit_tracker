@@ -6,6 +6,7 @@ export { dayActionsAPI } from './dayActions';
 export { weekViewAPI } from './weekView';
 export { dailyProgressAPI } from './dailyProgress';
 export { weeklyReportAPI } from './weeklyReport';
+export { chatbotAPI } from './chatbot';
 
 export type {
   LoginRequest,
@@ -48,3 +49,11 @@ export type {
   DailyStats,
   WeeklyReport,
 } from './weeklyReport';
+
+export type {
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  GenerateScheduleRequest,
+  GenerateScheduleResponse,
+} from './chatbot';

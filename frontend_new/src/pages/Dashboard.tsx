@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { CompactDashboard } from '../components/CompactDashboard';
 import { Logo } from '../components/Logo';
+import ChatbotModal from '../components/ChatbotModal';
+import { Bot } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -15,6 +18,13 @@ export const Dashboard: React.FC = () => {
               <Logo size="md" showText={true} />
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsChatbotOpen(true)}
+                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white p-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                title="AI Assistant"
+              >
+                <Bot className="w-5 h-5" />
+              </button>
               <span className="text-gray-700 font-medium">Welcome, {user?.username || user?.email}</span>
               <button
                 onClick={logout}
@@ -30,6 +40,11 @@ export const Dashboard: React.FC = () => {
       <main>
         <CompactDashboard />
       </main>
+
+      <ChatbotModal 
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+      />
     </div>
   );
 };
