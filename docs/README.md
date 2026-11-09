@@ -41,6 +41,7 @@ habit_tracker/
 │   │   └── utils/         # Utility functions
 │   ├── package.json       # Node.js dependencies
 │   └── public/            # Static assets
+├── mcp_server/             # MCP server exposing the API to AI assistants
 └── docs/                  # Documentation
 ```
 
@@ -225,6 +226,12 @@ Visit `http://localhost:8000/docs` for interactive API documentation.
 1. Build for production: `npm run build`
 2. Deploy the `build` directory to your web server
 3. Configure API endpoint in production
+
+## MCP Server (AI assistant integration)
+
+`mcp_server/` is a Python [Model Context Protocol](https://modelcontextprotocol.io) server (official `mcp` SDK, stdio transport) that lets Claude Code and other MCP clients use the Habit Tracker in natural language. It exposes three tools, `list_habits`, `get_week_plan` and `log_habit`, which call this REST API over HTTP. It authenticates by logging in with `POST /users/login` using credentials from environment variables and re-logs in automatically when the JWT expires.
+
+See [`mcp_server/README.md`](../mcp_server/README.md) for setup, environment variables, `claude mcp add` and example prompts.
 
 ## Contributing
 
